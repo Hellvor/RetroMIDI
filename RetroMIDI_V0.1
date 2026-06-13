@@ -1,0 +1,139 @@
+-- __________        __                 
+-- \______   \ _____/  |________  ____  
+--  |       _// __ \   __\_  __ \/  _ \ 
+--  |    |   \  ___/|  |  |  | \(  <_> )
+--  |____|_  /\___  >__|  |__|   \____/ 
+--       __\/   ._\/________  .___         
+--      /     \ |   \______ \ |   |        
+--     /  \ /  \|   ||    |  \|   |        
+--    /    Y    \   ||    `   \   |        
+--    \____|__  /___/_______  /___|        
+--            \/            \/             
+--    by Axis
+--
+-- This library implements functions that
+-- allow a gadget to communicate with a COM
+-- port as if it were a MIDI device. To
+-- actually utilise this library without
+-- a second device, you will need four*
+-- things:
+--
+-- - A tool that allows for the creation of 
+--   virtual, linked COM ports (I reccomend
+--   SerialTool, as it's free)
+--
+-- - A tool that converts Serial to MIDI
+--   (I reccomend Hairless MIDI <-> Serial
+--   Bridge)
+--
+-- - A tool that creates virtual MIDI
+--   cables (I reccomend loopMIDI)
+--
+-- - A tool to view MIDI commands as
+--   they're sent (You don't actually
+--   *need* this, but it'll make things
+--   a hell of a lot easier, trust me.)
+--   (I reccomend MidiView)
+--
+-- If you want to make edits to this library,
+-- I don't mind, but just know that, although 
+-- the comments may make it *seem* like I
+-- know what this stuff is doing, I really 
+-- have no clue at all X3 (Also, don't delete
+-- any of this stuff at the top, doing so
+-- will mean you are doing a plagerism, and
+-- that's no good.)
+--
+-- REMEMBER:
+-- - To output a Sharp, (a Black Note on a
+--   keyboard, usually written like A#) you have 
+--   to put the note like "AS", as I can't make
+--   variables have the hash symbol!
+--
+-- - To specify a channel, use "CXX" format, eg:
+--   Channel 1 = "C1", Channel 2 = "C2", etc.
+
+-- Umbrella for RetroMIDI
+local RetroMIDI = {}
+
+-- Numeric Values for Octave 0
+local Notes = {
+	C = 0,
+	CS = 1,
+	D = 2,
+	DS = 3,
+	E = 4,
+	F = 5,
+	FS = 6,
+	G = 7,
+	GS = 8,
+	A = 9,
+	AS = 10,
+	B = 11
+}
+
+-- Numeric Values for Channels
+local Channels = {
+	C1 = 128,
+	C2 = 129,
+	C3 = 130,
+	C4 = 131,
+	C5 = 132,
+	C6 = 133,
+	C7 = 134,
+	C8 = 135,
+	C9 = 136,
+	C10 = 137,
+	C11 = 138,
+	C12 = 139,
+	C13 = 140,
+	C14 = 141,
+	C15 = 142,
+	C16 = 143
+}
+
+-- Key Press Function
+function RetroMIDI.keyOn(channel, note, octave, velocity) -- Outputs an "On" signal to the COM port
+	
+	assert(channel ~= type("string"),"Function: 'RetroMIDI.keyOn()' cannot accept a non-string type value for argument: 'channel'") -- Make sure user doesn't try something silly like use the wrong type for an argument.
+	assert(Channels[channel],"Function: 'RetroMIDI.keyOn()' cannot accept values not in range: C1-C16 for argument: 'channel'")
+	assert(note ~= type("string"),"Function: 'RetroMIDI.keyOn()' cannot accept a non-string type value for argument: 'note'")
+	assert(Notes[note],"Function: 'RetroMIDI.keyOn()' cannot accept value: '".. note .."' as argument: 'note' as it is invalid.")
+	assert(octave ~= type("number"),"Function: 'RetroMIDI.keyOn()' cannot accept a non-number type value for argument: 'octave'")
+	assert(0 <= octave,"Function: 'RetroMIDI.keyOn()' cannot accept value: '".. octave .."' as argument: 'octave' as it is out of range.")
+	assert(10 >= octave,"Function: 'RetroMIDI.keyOn()' cannot accept value: '".. octave .."' as argument: 'octave' as it is out of range.")
+	assert(velocity ~= type("number"),"Function: 'RetroMIDI.keyOn()' cannot accept a non-number type value for argument: 'velocity'")
+	assert(0 <= velocity,"Function: 'RetroMIDI.keyOn()' cannot accept value: '".. velocity .."' as argument: 'velocity' as it is out of range.")
+	assert(127 >= velocity,"Function: 'RetroMIDI.keyOn()' cannot accept value: '".. velocity .."' as argument: 'velocity' as it is out of range.")
+	
+	noteReal = Notes[note] + ( 12 * octave ) -- Works out the actual note value for the note at the octave, eg: note AS at octave 5 -> 10 + (12 * 5) = 70. Working this out at runtime means less Lua enviroment stop and thinky and look through note encyclopedia, and more Lua enviroment do what we actually want it to do. 
+	channelReal = Channels[channel] + 16 -- Make sure that we actually call the correct status code for channel, because software gets angy when you send malformed data.
+	gdt.Serial0:WriteUInt8(channelReal) -- Send the status byte to serial
+	gdt.Serial0:WriteUInt8(noteReal) -- Send the data byte for the note
+	gdt.Serial0:WriteUInt8(velocity) -- Send the data byte for the velocity
+end
+
+-- Key Depress Function
+function RetroMIDI.keyOff(channel, note, octave, velocity) -- Outputs an "Off" signal to the COM port
+	
+	assert(channel ~= type("string"),"Function: 'RetroMIDI.keyOff()' cannot accept a non-string type value for argument: 'channel'") -- Make sure user doesn't try something silly like use the wrong type for an argument.
+	assert(Channels[channel],"Function: 'RetroMIDI.keyOff()' cannot accept values not in range: C1-C16 for argument: 'channel'")
+	assert(note ~= type("string"),"Function: 'RetroMIDI.keyOff()' cannot accept a non-string type value for argument: 'note'")
+	assert(Notes[note],"Function: 'RetroMIDI.keyOff()' cannot accept value: '".. note .."' as argument: 'note' as it is invalid.")
+	assert(octave ~= type("number"),"Function: 'RetroMIDI.keyOff()' cannot accept a non-number type value for argument: 'octave'")
+	assert(0 <= octave,"Function: 'RetroMIDI.keyOff()' cannot accept value: '".. octave .."' as argument: 'octave' as it is out of range.")
+	assert(10 >= octave,"Function: 'RetroMIDI.keyOff()' cannot accept value: '".. octave .."' as argument: 'octave' as it is out of range.")
+	assert(velocity ~= type("number"),"Function: 'RetroMIDI.keyOff()' cannot accept a non-number type value for argument: 'velocity'")
+	assert(0 <= velocity,"Function: 'RetroMIDI.keyOff()' cannot accept value: '".. velocity .."' as argument: 'velocity' as it is out of range.")
+	assert(127 >= velocity,"Function: 'RetroMIDI.keyOff()' cannot accept value: '".. velocity .."' as argument: 'velocity' as it is out of range.")
+	
+	noteReal = Notes[note] + ( 12 * octave ) -- Figure out the note,
+	channelReal = Channels[channel] -- figure out the channel,
+	gdt.Serial0:WriteUInt8(channelReal) -- blah, blah, blah, you know this already
+	gdt.Serial0:WriteUInt8(noteReal) -- I don't have to explain it again,
+	gdt.Serial0:WriteUInt8(velocity) -- it's the exact same as the last one, just with a different status byte.
+end
+
+
+
+return RetroMIDI
